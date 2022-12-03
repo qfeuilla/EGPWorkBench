@@ -4,6 +4,28 @@ import torch
 import torch.optim as optim
 import numpy as np
 
+import os
+from torchvision import transforms
+from PIL import Image
+
+def get_goal_target() -> torch.Tensor:
+    # Get asset idx
+    asset_idx_path = "../procgenEGP/procgen/data/assets/target_asset.txt" #FIXME
+    with open(asset_idx_path) as f:
+        asset_idx = int(f.read())
+    
+    # Get asset
+    asset_path = "../procgenEGP/procgen/data/assets/kenney/Items"
+    
+    for _, _, files in os.walk(asset_path):
+        target_file = files[0][asset_idx]
+
+    target_img = Image.open(asset_path + target_file).resize((8,8))
+    convert_tensor = transforms.ToTensor()
+
+    target_img = torch.FloatTensor(convert_tensor(target_img)[:3, :, :] /255.0)
+    return target_img
+
 
 class PPO(BaseAgent):
     def __init__(self,
@@ -49,12 +71,12 @@ class PPO(BaseAgent):
         self.normalize_rew = normalize_rew
         self.use_gae = use_gae
 
-    def predict(self, obs, hidden_state, done):
+    def predict(self, obs, hidden_state, done, target):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).to(device=self.device)
             hidden_state = torch.FloatTensor(hidden_state).to(device=self.device)
             mask = torch.FloatTensor(1-done).to(device=self.device)
-            dist, value, hidden_state = self.policy(obs, hidden_state, mask)
+            dist, value, hidden_state = self.policy(obs, hidden_state, mask, target)
             act = dist.sample()
             log_prob_act = dist.log_prob(act)
 
@@ -118,6 +140,8 @@ class PPO(BaseAgent):
         obs = self.env.reset()
         hidden_state = np.zeros((self.n_envs, self.storage.hidden_state_size))
         done = np.zeros(self.n_envs)
+
+        goal_target = get_goal_target()
 
         while self.t < num_timesteps:
             # Run Policy
