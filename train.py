@@ -77,6 +77,7 @@ if __name__=='__main__':
                     num_levels=num_levels,
                     distribution_mode=distribution_mode,
                     game_asset_index=game_asset_idx,
+                    is_test=False
                 )
     normalize_rew = hyperparameters.get('normalize_rew', True)
     env = VecExtractDictObs(env, "rgb")

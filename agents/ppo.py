@@ -8,9 +8,9 @@ import os
 from torchvision import transforms
 from PIL import Image
 
-def get_goal_target(asset_index : int) -> torch.Tensor:    
+def get_goal_target(asset_index : int, is_test : bool) -> torch.Tensor:    
     # Get asset
-    asset_path = "../procgenEGP/procgen/data/assets/kenney/Items/"
+    asset_path = f"../procgenEGP/procgen/data/assets/kenney/Items{'_test' if is_test else ''}/"
     
     target_file = os.listdir(asset_path)[asset_index]
 
@@ -29,6 +29,7 @@ class PPO(BaseAgent):
                  device,
                  game_assets,
                  n_checkpoints,
+                 is_test=False,
                  n_steps=128,
                  n_envs=8,
                  epoch=3,
@@ -64,7 +65,7 @@ class PPO(BaseAgent):
         self.normalize_adv = normalize_adv
         self.normalize_rew = normalize_rew
         self.use_gae = use_gae
-        self.goal_targets = torch.cat([get_goal_target(i) for i in game_assets])
+        self.goal_targets = torch.cat([get_goal_target(i, is_test) for i in game_assets])
 
     def predict(self, obs, hidden_state, done, target):
         with torch.no_grad():
