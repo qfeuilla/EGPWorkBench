@@ -1,7 +1,7 @@
 from common.env.procgen_wrappers import *
 from common.logger import Logger
 from common.storage import Storage
-from common.model import NatureModel, ImpalaModel
+from common.model_target import NatureModel, ImpalaModelTarget
 from common.policy import CategoricalPolicy
 from common import set_global_seeds, set_global_log_levels
 
@@ -67,12 +67,17 @@ if __name__=='__main__':
     n_envs = hyperparameters.get('n_envs', 64)
     # By default, pytorch utilizes multi-threaded cpu
     # Procgen is able to handle thousand of steps on a single core
-    torch.set_num_threads(1)
+    
+    game_asset_idx = [np.random.randint(0, int(len(os.listdir("../procgenEGP/procgen/data/assets/kenney/Items/")))) for _ in range(n_envs)]
+    
+    torch.set_num_threads(4)
     env = ProcgenEnv(num_envs=n_envs,
-                     env_name=env_name,
-                     start_level=start_level,
-                     num_levels=num_levels,
-                     distribution_mode=distribution_mode)
+                    env_name=env_name,
+                    start_level=start_level,
+                    num_levels=num_levels,
+                    distribution_mode=distribution_mode,
+                    game_asset_index=game_asset_idx,
+                )
     normalize_rew = hyperparameters.get('normalize_rew', True)
     env = VecExtractDictObs(env, "rgb")
     if normalize_rew:
@@ -105,7 +110,7 @@ if __name__=='__main__':
     if architecture == 'nature':
         model = NatureModel(in_channels=in_channels)
     elif architecture == 'impala':
-        model = ImpalaModel(in_channels=in_channels)
+        model = ImpalaModelTarget(in_channels=in_channels)
 
     # Discrete action space
     recurrent = hyperparameters.get('recurrent', False)
@@ -132,7 +137,7 @@ if __name__=='__main__':
         from agents.ppo import PPO as AGENT
     else:
         raise NotImplementedError
-    agent = AGENT(env, policy, logger, storage, device, num_checkpoints, **hyperparameters)
+    agent = AGENT(env, policy, logger, storage, device, game_asset_idx, num_checkpoints, **hyperparameters)
 
     ##############
     ## TRAINING ##

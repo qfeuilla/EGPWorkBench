@@ -21,12 +21,13 @@ class Storage():
         self.done_batch = torch.zeros(self.num_steps, self.num_envs)
         self.log_prob_act_batch = torch.zeros(self.num_steps, self.num_envs)
         self.value_batch = torch.zeros(self.num_steps+1, self.num_envs)
+        self.target_idxs = torch.zeros(self.num_steps+1, self.num_envs, 3, 8, 8)
         self.return_batch = torch.zeros(self.num_steps, self.num_envs)
         self.adv_batch = torch.zeros(self.num_steps, self.num_envs)
         self.info_batch = deque(maxlen=self.num_steps)
         self.step = 0
 
-    def store(self, obs, hidden_state, act, rew, done, info, log_prob_act, value):
+    def store(self, obs, hidden_state, act, rew, done, info, log_prob_act, value, target):
         self.obs_batch[self.step] = torch.from_numpy(obs.copy())
         self.hidden_states_batch[self.step] = torch.from_numpy(hidden_state.copy())
         self.act_batch[self.step] = torch.from_numpy(act.copy())
@@ -34,14 +35,16 @@ class Storage():
         self.done_batch[self.step] = torch.from_numpy(done.copy())
         self.log_prob_act_batch[self.step] = torch.from_numpy(log_prob_act.copy())
         self.value_batch[self.step] = torch.from_numpy(value.copy())
+        self.target_idxs[self.step] = target.clone()
         self.info_batch.append(info)
 
         self.step = (self.step + 1) % self.num_steps
 
-    def store_last(self, last_obs, last_hidden_state, last_value):
+    def store_last(self, last_obs, last_hidden_state, last_value, last_target):
         self.obs_batch[-1] = torch.from_numpy(last_obs.copy())
         self.hidden_states_batch[-1] = torch.from_numpy(last_hidden_state.copy())
         self.value_batch[-1] = torch.from_numpy(last_value.copy())
+        self.target_idxs[-1] = last_target.clone()
 
     def compute_estimates(self, gamma=0.99, lmbda=0.95, use_gae=True, normalize_adv=True):
         rew_batch = self.rew_batch
@@ -85,9 +88,10 @@ class Storage():
                 done_batch = torch.FloatTensor(self.done_batch).reshape(-1)[indices].to(self.device)
                 log_prob_act_batch = torch.FloatTensor(self.log_prob_act_batch).reshape(-1)[indices].to(self.device)
                 value_batch = torch.FloatTensor(self.value_batch[:-1]).reshape(-1)[indices].to(self.device)
+                target_idxs = torch.FloatTensor(self.target_idxs[:-1]).reshape(-1, 3, 8, 8)[indices].to(self.device)
                 return_batch = torch.FloatTensor(self.return_batch).reshape(-1)[indices].to(self.device)
                 adv_batch = torch.FloatTensor(self.adv_batch).reshape(-1)[indices].to(self.device)
-                yield obs_batch, hidden_state_batch, act_batch, done_batch, log_prob_act_batch, value_batch, return_batch, adv_batch
+                yield obs_batch, hidden_state_batch, act_batch, done_batch, log_prob_act_batch, value_batch, return_batch, adv_batch, target_idxs
         # If agent's policy is recurrent, data should be sampled along the time-horizon
         else:
             num_mini_batch_per_epoch = batch_size // mini_batch_size
@@ -102,9 +106,10 @@ class Storage():
                 done_batch = torch.FloatTensor(self.done_batch[:, idxes]).reshape(-1).to(self.device)
                 log_prob_act_batch = torch.FloatTensor(self.log_prob_act_batch[:, idxes]).reshape(-1).to(self.device)
                 value_batch = torch.FloatTensor(self.value_batch[:-1, idxes]).reshape(-1).to(self.device)
+                target_idxs = torch.FloatTensor(self.target_idxs[:-1, idxes]).reshape(-1, 3, 8, 8).to(self.device)
                 return_batch = torch.FloatTensor(self.return_batch[:, idxes]).reshape(-1).to(self.device)
                 adv_batch = torch.FloatTensor(self.adv_batch[:, idxes]).reshape(-1).to(self.device)
-                yield obs_batch, hidden_state_batch, act_batch, done_batch, log_prob_act_batch, value_batch, return_batch, adv_batch
+                yield obs_batch, hidden_state_batch, act_batch, done_batch, log_prob_act_batch, value_batch, return_batch, adv_batch, target_idxs
 
     def fetch_log_data(self):
         if 'env_reward' in self.info_batch[0][0]:

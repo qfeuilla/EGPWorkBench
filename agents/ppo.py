@@ -8,24 +8,17 @@ import os
 from torchvision import transforms
 from PIL import Image
 
-def get_goal_target() -> torch.Tensor:
-    # Get asset idx
-    asset_idx_path = "../procgenEGP/procgen/data/assets/target_asset.txt" #FIXME
-    with open(asset_idx_path) as f:
-        asset_idx = int(f.read())
-    
+def get_goal_target(asset_index : int) -> torch.Tensor:    
     # Get asset
-    asset_path = "../procgenEGP/procgen/data/assets/kenney/Items"
+    asset_path = "../procgenEGP/procgen/data/assets/kenney/Items/"
     
-    for _, _, files in os.walk(asset_path):
-        target_file = files[0][asset_idx]
+    target_file = os.listdir(asset_path)[asset_index]
 
-    target_img = Image.open(asset_path + target_file).resize((8,8))
+    target_imgs = Image.open(asset_path + target_file).resize((8,8))
     convert_tensor = transforms.ToTensor()
 
-    target_img = torch.FloatTensor(convert_tensor(target_img)[:3, :, :] /255.0)
-    return target_img
-
+    target_imgs = torch.FloatTensor(convert_tensor(target_imgs)[:3, :, :] /255.0)
+    return target_imgs.unsqueeze(dim=0)
 
 class PPO(BaseAgent):
     def __init__(self,
@@ -34,6 +27,7 @@ class PPO(BaseAgent):
                  logger,
                  storage,
                  device,
+                 game_assets,
                  n_checkpoints,
                  n_steps=128,
                  n_envs=8,
@@ -70,13 +64,14 @@ class PPO(BaseAgent):
         self.normalize_adv = normalize_adv
         self.normalize_rew = normalize_rew
         self.use_gae = use_gae
+        self.goal_targets = torch.cat([get_goal_target(i) for i in game_assets])
 
     def predict(self, obs, hidden_state, done, target):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).to(device=self.device)
             hidden_state = torch.FloatTensor(hidden_state).to(device=self.device)
             mask = torch.FloatTensor(1-done).to(device=self.device)
-            dist, value, hidden_state = self.policy(obs, hidden_state, mask, target)
+            dist, value, hidden_state = self.policy(obs, hidden_state, mask, target.to(self.device))
             act = dist.sample()
             log_prob_act = dist.log_prob(act)
 
@@ -97,9 +92,9 @@ class PPO(BaseAgent):
                                                            recurrent=recurrent)
             for sample in generator:
                 obs_batch, hidden_state_batch, act_batch, done_batch, \
-                    old_log_prob_act_batch, old_value_batch, return_batch, adv_batch = sample
+                    old_log_prob_act_batch, old_value_batch, return_batch, adv_batch, target = sample
                 mask_batch = (1-done_batch)
-                dist_batch, value_batch, _ = self.policy(obs_batch, hidden_state_batch, mask_batch)
+                dist_batch, value_batch, _ = self.policy(obs_batch, hidden_state_batch, mask_batch, target)
 
                 # Clipped Surrogate Objective
                 log_prob_act_batch = dist_batch.log_prob(act_batch)
@@ -137,23 +132,21 @@ class PPO(BaseAgent):
     def train(self, num_timesteps):
         save_every = num_timesteps // self.num_checkpoints
         checkpoint_cnt = 0
+
         obs = self.env.reset()
         hidden_state = np.zeros((self.n_envs, self.storage.hidden_state_size))
         done = np.zeros(self.n_envs)
-
-        goal_target = get_goal_target()
-
         while self.t < num_timesteps:
             # Run Policy
             self.policy.eval()
             for _ in range(self.n_steps):
-                act, log_prob_act, value, next_hidden_state = self.predict(obs, hidden_state, done)
+                act, log_prob_act, value, next_hidden_state = self.predict(obs, hidden_state, done, self.goal_targets)
                 next_obs, rew, done, info = self.env.step(act)
-                self.storage.store(obs, hidden_state, act, rew, done, info, log_prob_act, value)
+                self.storage.store(obs, hidden_state, act, rew, done, info, log_prob_act, value, self.goal_targets)
                 obs = next_obs
                 hidden_state = next_hidden_state
-            _, _, last_val, hidden_state = self.predict(obs, hidden_state, done)
-            self.storage.store_last(obs, hidden_state, last_val)
+            _, _, last_val, hidden_state = self.predict(obs, hidden_state, done, self.goal_targets)
+            self.storage.store_last(obs, hidden_state, last_val, self.goal_targets)
             # Compute advantage estimates
             self.storage.compute_estimates(self.gamma, self.lmbda, self.use_gae, self.normalize_adv)
 

@@ -127,17 +127,17 @@ class ImpalaModelTarget(nn.Module):
         x = self.block2(x)
         x = self.block3(x)
         x = nn.ReLU()(x)
-        x = rearrange(x, "b c w h -> (b c w h)")
+        x = rearrange(x, "b c w h -> b (c w h)")
         #Flatten()(x)
 
         target = self.block1(target)
         target = self.block2(target)
         target = self.block3(target)
         target = nn.ReLU()(target)
-        target = rearrange(target, "c w h -> (c w h)")
+        target = rearrange(target, "b c w h -> b (c w h)")
         # target = Flatten()(target)
 
-        x = torch.cat((x, target)) 
+        x = torch.cat((x, target), dim=-1)
 
         x = self.fc(x)
         x = nn.ReLU()(x)
