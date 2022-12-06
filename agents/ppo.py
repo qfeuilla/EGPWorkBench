@@ -86,44 +86,45 @@ class PPO(BaseAgent):
         grad_accumulation_steps = batch_size / self.mini_batch_size
         grad_accumulation_cnt = 1
 
-        self.policy.train()
-        for e in range(self.epoch):
-            recurrent = self.policy.is_recurrent()
-            generator = self.storage.fetch_train_generator(mini_batch_size=self.mini_batch_size,
-                                                           recurrent=recurrent)
-            for sample in generator:
-                obs_batch, hidden_state_batch, act_batch, done_batch, \
-                    old_log_prob_act_batch, old_value_batch, return_batch, adv_batch, target = sample
-                mask_batch = (1-done_batch)
-                dist_batch, value_batch, _ = self.policy(obs_batch, hidden_state_batch, mask_batch, target)
+        with torch.autocast("cuda"):
+            self.policy.train()
+            for e in range(self.epoch):
+                recurrent = self.policy.is_recurrent()
+                generator = self.storage.fetch_train_generator(mini_batch_size=self.mini_batch_size,
+                                                            recurrent=recurrent)
+                for sample in generator:
+                    obs_batch, hidden_state_batch, act_batch, done_batch, \
+                        old_log_prob_act_batch, old_value_batch, return_batch, adv_batch, target = sample
+                    mask_batch = (1-done_batch)
+                    dist_batch, value_batch, _ = self.policy(obs_batch, hidden_state_batch, mask_batch, target)
 
-                # Clipped Surrogate Objective
-                log_prob_act_batch = dist_batch.log_prob(act_batch)
-                ratio = torch.exp(log_prob_act_batch - old_log_prob_act_batch)
-                surr1 = ratio * adv_batch
-                surr2 = torch.clamp(ratio, 1.0 - self.eps_clip, 1.0 + self.eps_clip) * adv_batch
-                pi_loss = -torch.min(surr1, surr2).mean()
+                    # Clipped Surrogate Objective
+                    log_prob_act_batch = dist_batch.log_prob(act_batch)
+                    ratio = torch.exp(log_prob_act_batch - old_log_prob_act_batch)
+                    surr1 = ratio * adv_batch
+                    surr2 = torch.clamp(ratio, 1.0 - self.eps_clip, 1.0 + self.eps_clip) * adv_batch
+                    pi_loss = -torch.min(surr1, surr2).mean()
 
-                # Clipped Bellman-Error
-                clipped_value_batch = old_value_batch + (value_batch - old_value_batch).clamp(-self.eps_clip, self.eps_clip)
-                v_surr1 = (value_batch - return_batch).pow(2)
-                v_surr2 = (clipped_value_batch - return_batch).pow(2)
-                value_loss = 0.5 * torch.max(v_surr1, v_surr2).mean()
+                    # Clipped Bellman-Error
+                    clipped_value_batch = old_value_batch + (value_batch - old_value_batch).clamp(-self.eps_clip, self.eps_clip)
+                    v_surr1 = (value_batch - return_batch).pow(2)
+                    v_surr2 = (clipped_value_batch - return_batch).pow(2)
+                    value_loss = 0.5 * torch.max(v_surr1, v_surr2).mean()
 
-                # Policy Entropy
-                entropy_loss = dist_batch.entropy().mean()
-                loss = pi_loss + self.value_coef * value_loss - self.entropy_coef * entropy_loss
-                loss.backward()
+                    # Policy Entropy
+                    entropy_loss = dist_batch.entropy().mean()
+                    loss = pi_loss + self.value_coef * value_loss - self.entropy_coef * entropy_loss
+                    loss.backward()
 
-                # Let model to handle the large batch-size with small gpu-memory
-                if grad_accumulation_cnt % grad_accumulation_steps == 0:
-                    torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.grad_clip_norm)
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
-                grad_accumulation_cnt += 1
-                pi_loss_list.append(pi_loss.item())
-                value_loss_list.append(value_loss.item())
-                entropy_loss_list.append(entropy_loss.item())
+                    # Let model to handle the large batch-size with small gpu-memory
+                    if grad_accumulation_cnt % grad_accumulation_steps == 0:
+                        torch.nn.utils.clip_grad_norm_(self.policy.parameters(), self.grad_clip_norm)
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
+                    grad_accumulation_cnt += 1
+                    pi_loss_list.append(pi_loss.item())
+                    value_loss_list.append(value_loss.item())
+                    entropy_loss_list.append(entropy_loss.item())
 
         summary = {'Loss/pi': np.mean(pi_loss_list),
                    'Loss/v': np.mean(value_loss_list),
