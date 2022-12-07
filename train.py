@@ -68,6 +68,7 @@ if __name__=='__main__':
     # By default, pytorch utilizes multi-threaded cpu
     # Procgen is able to handle thousand of steps on a single core
     
+    # TODO: train and test assets_idx
     game_asset_idx = [np.random.randint(0, int(len(os.listdir("../procgenEGP/procgen/data/assets/kenney/Items/")))) for _ in range(n_envs)]
     
     torch.set_num_threads(4)

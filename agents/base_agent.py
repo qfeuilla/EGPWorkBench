@@ -1,4 +1,8 @@
 import torch
+from torch import nn
+from procgen import ProcgenEnv
+from ..common.storage import Storage
+from ..common.logger import Logger
 
 class BaseAgent(object):
     """
@@ -7,19 +11,23 @@ class BaseAgent(object):
     """
 
     def __init__(self, 
-                 env,
-                 policy,
-                 logger,
-                 storage,
-                 device,
-                 num_checkpoints):
+                 env: ProcgenEnv,
+                 env_test: ProcgenEnv,
+                 policy: nn.Module,
+                 logger: Logger,
+                 storage: Storage,
+                 storage_test: Storage,
+                 device: torch.device,
+                 num_checkpoints: int):
         """
         env: (gym.Env) environment following the openAI Gym API
         """
         self.env = env
+        self.env_test = env_test
         self.policy = policy
         self.logger = logger
         self.storage = storage
+        self.storage_test = storage_test
         self.device = device
         self.num_checkpoints = num_checkpoints
         

@@ -1,8 +1,13 @@
 from .base_agent import BaseAgent
+from ..common.logger import Logger
+from ..common.storage import Storage
 from common.misc_util import adjust_lr, get_n_params
 import torch
 import torch.optim as optim
+from torch import nn
 import numpy as np
+from procgen import ProcgenEnv
+from typing import List
 
 import os
 from torchvision import transforms
@@ -22,32 +27,34 @@ def get_goal_target(asset_index : int, is_test : bool) -> torch.Tensor:
 
 class PPO(BaseAgent):
     def __init__(self,
-                 env,
-                 policy,
-                 logger,
-                 storage,
-                 device,
-                 game_assets,
-                 n_checkpoints,
-                 is_test=False,
-                 n_steps=128,
-                 n_envs=8,
-                 epoch=3,
-                 mini_batch_per_epoch=8,
-                 mini_batch_size=32*8,
-                 gamma=0.99,
-                 lmbda=0.95,
-                 learning_rate=2.5e-4,
-                 grad_clip_norm=0.5,
-                 eps_clip=0.2,
-                 value_coef=0.5,
-                 entropy_coef=0.01,
-                 normalize_adv=True,
-                 normalize_rew=True,
-                 use_gae=True,
+                 env: ProcgenEnv,
+                 env_test: ProcgenEnv,
+                 policy: nn.Module,
+                 logger: Logger,
+                 storage: Storage,
+                 storage_test: Storage,
+                 device: torch.device,
+                 game_assets: List[int],
+                 n_checkpoints: int,
+                 is_test: bool = False,
+                 n_steps: int = 128,
+                 n_envs: int = 8,
+                 epoch: int = 3,
+                 mini_batch_per_epoch: int = 8,
+                 mini_batch_size: int = 32*8,
+                 gamma: float = 0.99,
+                 lmbda: float = 0.95,
+                 learning_rate: float = 2.5e-4,
+                 grad_clip_norm: float = 0.5,
+                 eps_clip: float = 0.2,
+                 value_coef: float = 0.5,
+                 entropy_coef: float = 0.01,
+                 normalize_adv: bool = True,
+                 normalize_rew: bool = True,
+                 use_gae: bool = True,
                  **kwargs):
 
-        super(PPO, self).__init__(env, policy, logger, storage, device, n_checkpoints)
+        super(PPO, self).__init__(env, env_test, policy, logger, storage, storage_test, device, n_checkpoints)
 
         self.n_steps = n_steps
         self.n_envs = n_envs
@@ -131,7 +138,7 @@ class PPO(BaseAgent):
                    'Loss/entropy': np.mean(entropy_loss_list)}
         return summary
 
-    def train(self, num_timesteps):
+    def train(self, num_timesteps: int):
         save_every = num_timesteps // self.num_checkpoints
         checkpoint_cnt = 0
 
@@ -167,3 +174,21 @@ class PPO(BaseAgent):
                            '/model_' + str(self.t) + '.pth')
                 checkpoint_cnt += 1
         self.env.close()
+
+    def test(self, num_timesteps: int):
+        obs = self.env_test.reset()
+        hidden_state = np.zeros((self.n_envs, self.storage_test.hidden_state_size))
+        done = np.zeros(self.n_envs)
+        while self.t < num_timesteps:
+            # Run Policy
+            self.policy.eval()
+            for _ in range(self.n_steps):
+                act, log_prob_act, value, next_hidden_state = self.predict(obs, hidden_state, done, self.goal_targets)
+                next_obs, rew, done, info = self.env_test.step(act)
+                self.storage_test.store(obs, hidden_state, act, rew, done, info, log_prob_act, value, self.goal_targets)
+                obs = next_obs
+                hidden_state = next_hidden_state
+            _, _, last_val, hidden_state = self.predict(obs, hidden_state, done, self.goal_targets)
+            self.storage_test.store_last(obs, hidden_state, last_val, self.goal_targets)
+
+        self.env_test.close()
