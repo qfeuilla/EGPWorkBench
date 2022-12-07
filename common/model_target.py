@@ -110,6 +110,7 @@ class ImpalaModelTarget(nn.Module):
         self.block1 = ImpalaBlock(in_channels=in_channels, out_channels=16)
         self.block2 = ImpalaBlock(in_channels=16, out_channels=32)
         self.block3 = ImpalaBlock(in_channels=32, out_channels=32)
+        self.block4 = ImpalaBlock(in_channels=32, out_channels=32)
   
         # Processing the target
         self.target_block1 = ImpalaBlock(in_channels=in_channels, out_channels=16)
@@ -117,7 +118,7 @@ class ImpalaModelTarget(nn.Module):
         self.target_block3 = ImpalaBlock(in_channels=32, out_channels=32)
   
   
-        self.fc = nn.Linear(in_features=32 * 8 * 8 + 32, out_features=256)
+        self.fc1 = nn.Linear(in_features=32 * 8 * 8 + 32, out_features=256)
 
         self.output_dim = 256
         self.apply(xavier_uniform_init)
@@ -126,20 +127,21 @@ class ImpalaModelTarget(nn.Module):
         x = self.block1(x)
         x = self.block2(x)
         x = self.block3(x)
+        x = self.block4(x)
         x = nn.ReLU()(x)
         x = rearrange(x, "b c w h -> b (c w h)")
         #Flatten()(x)
 
-        target = self.block1(target)
-        target = self.block2(target)
-        target = self.block3(target)
+        target = self.target_block1(target)
+        target = self.target_block2(target)
+        target = self.target_block3(target)
         target = nn.ReLU()(target)
         target = rearrange(target, "b c w h -> b (c w h)")
         # target = Flatten()(target)
 
         x = torch.cat((x, target), dim=-1)
 
-        x = self.fc(x)
+        x = self.fc1(x)
         x = nn.ReLU()(x)
         return x
 
