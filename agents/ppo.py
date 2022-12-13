@@ -1,6 +1,6 @@
 from .base_agent import BaseAgent
-from ..common.logger import Logger
-from ..common.storage import Storage
+from common.logger import Logger
+from common.storage import Storage
 from common.misc_util import adjust_lr, get_n_params
 import torch
 import torch.optim as optim
@@ -139,7 +139,7 @@ class PPO(BaseAgent):
         return summary
 
     def generate_wrong_target(self, target_idx_to_update: np.array) -> torch.Tensor:
-        tmp_targets_idx = np.arange(len(self.goal_targets.shape[0]))
+        tmp_targets_idx = np.arange(self.goal_targets.shape[0])
         tmp_targets = torch.clone(self.goal_targets)
         
         wrong_target_idx = np.random.choice(tmp_targets_idx[~np.isin(tmp_targets_idx, target_idx_to_update)], 
@@ -175,7 +175,7 @@ class PPO(BaseAgent):
                 next_obs, rew, done, info = self.env.step(act)
                 
                 # Change reward if get rewarded for collecting the wrong target
-                rew[wrong_label_idx] = torch.abs(rew[wrong_label_idx]) * -1
+                rew[wrong_label_idx] = np.abs(rew[wrong_label_idx]) * -1
 
                 self.storage.store(obs, hidden_state, act, rew, done, info, log_prob_act, value, tmp_targets)
                 obs = next_obs

@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 from procgen import ProcgenEnv
-from ..common.storage import Storage
-from ..common.logger import Logger
+from common.storage import Storage
+from common.logger import Logger
 
 class BaseAgent(object):
     """
