@@ -138,6 +138,23 @@ class PPO(BaseAgent):
                    'Loss/entropy': np.mean(entropy_loss_list)}
         return summary
 
+    def generate_wrong_target(self, target_idx_to_update: np.array) -> torch.Tensor:
+        tmp_targets_idx = np.arange(len(self.goal_targets.shape[0]))
+        tmp_targets = torch.clone(self.goal_targets)
+        
+        wrong_target_idx = np.random.choice(tmp_targets_idx[~np.isin(tmp_targets_idx, target_idx_to_update)], 
+                                        len(target_idx_to_update), 
+                                        replace=True)
+        tmp_targets[target_idx_to_update] = tmp_targets[wrong_target_idx]
+        return tmp_targets
+
+    # def generate_wrong_target(self, target_idx_to_update: np.array) -> torch.Tensor:
+    #     tmp_targets = torch.clone(self.goal_targets)
+    #     wrong_target_idx = np.random.permutation(target_idx_to_update)
+    #     tmp_targets[target_idx_to_update] = tmp_targets[wrong_target_idx]
+    #     return tmp_targets
+
+
     def train(self, num_timesteps: int):
         save_every = num_timesteps // self.num_checkpoints
         checkpoint_cnt = 0
@@ -148,14 +165,23 @@ class PPO(BaseAgent):
         while self.t < num_timesteps:
             # Run Policy
             self.policy.eval()
+
+            # Generate wrong targets for 25% of the envs
+            wrong_label_idx = np.random.randint(low=0, high=self.n_envs, size=self.n_envs // 4)
+            tmp_targets = self.generate_wrong_target(wrong_label_idx)
+
             for _ in range(self.n_steps):
-                act, log_prob_act, value, next_hidden_state = self.predict(obs, hidden_state, done, self.goal_targets)
+                act, log_prob_act, value, next_hidden_state = self.predict(obs, hidden_state, done, tmp_targets)
                 next_obs, rew, done, info = self.env.step(act)
-                self.storage.store(obs, hidden_state, act, rew, done, info, log_prob_act, value, self.goal_targets)
+                
+                # Change reward if get rewarded for collecting the wrong target
+                rew[wrong_label_idx] = torch.abs(rew[wrong_label_idx]) * -1
+
+                self.storage.store(obs, hidden_state, act, rew, done, info, log_prob_act, value, tmp_targets)
                 obs = next_obs
                 hidden_state = next_hidden_state
-            _, _, last_val, hidden_state = self.predict(obs, hidden_state, done, self.goal_targets)
-            self.storage.store_last(obs, hidden_state, last_val, self.goal_targets)
+            _, _, last_val, hidden_state = self.predict(obs, hidden_state, done, tmp_targets)
+            self.storage.store_last(obs, hidden_state, last_val, tmp_targets) 
             # Compute advantage estimates
             self.storage.compute_estimates(self.gamma, self.lmbda, self.use_gae, self.normalize_adv)
 
@@ -174,6 +200,47 @@ class PPO(BaseAgent):
                            '/model_' + str(self.t) + '.pth')
                 checkpoint_cnt += 1
         self.env.close()
+
+# def train(self, num_timesteps: int):
+#         save_every = num_timesteps // self.num_checkpoints
+#         checkpoint_cnt = 0
+
+#         obs = self.env.reset()
+#         hidden_state = np.zeros((self.n_envs, self.storage.hidden_state_size))
+#         done = np.zeros(self.n_envs)
+#         while self.t < num_timesteps:
+#             # Run Policy
+#             self.policy.eval()
+
+#             wrong_label_idx = np.random.randint(low=0, high=obs.shape, size=4)
+
+#             for _ in range(self.n_steps):
+#                 act, log_prob_act, value, next_hidden_state = self.predict(obs, hidden_state, done, self.goal_targets)
+#                 next_obs, rew, done, info = self.env.step(act)
+#                 self.storage.store(obs, hidden_state, act, rew, done, info, log_prob_act, value, self.goal_targets)
+#                 obs = next_obs
+#                 hidden_state = next_hidden_state
+#             _, _, last_val, hidden_state = self.predict(obs, hidden_state, done, self.goal_targets)
+#             self.storage.store_last(obs, hidden_state, last_val, self.goal_targets)
+#             # Compute advantage estimates
+#             self.storage.compute_estimates(self.gamma, self.lmbda, self.use_gae, self.normalize_adv)
+
+#             # Optimize policy & valueq
+#             summary = self.optimize()
+#             # Log the training-procedure
+#             self.t += self.n_steps * self.n_envs
+#             rew_batch, done_batch = self.storage.fetch_log_data()
+#             self.logger.feed(rew_batch, done_batch)
+#             self.logger.write_summary(summary)
+#             self.logger.dump()
+#             self.optimizer = adjust_lr(self.optimizer, self.learning_rate, self.t, num_timesteps)
+#             # Save the model
+#             if self.t > ((checkpoint_cnt+1) * save_every):
+#                 torch.save({'state_dict': self.policy.state_dict()}, self.logger.logdir +
+#                            '/model_' + str(self.t) + '.pth')
+#                 checkpoint_cnt += 1
+#         self.env.close()
+
 
     def test(self, num_timesteps: int):
         obs = self.env_test.reset()
