@@ -127,4 +127,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-logs/*
+
+! ./logs/procgen/coinrun/easy-random-100-res-128-coins-27
