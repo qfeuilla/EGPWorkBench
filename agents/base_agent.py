@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from procgen import ProcgenEnv
+# from procgen import ProcgenEnv
 from common.storage import Storage
 from common.logger import Logger
 
@@ -11,8 +11,8 @@ class BaseAgent(object):
     """
 
     def __init__(self, 
-                 env: ProcgenEnv,
-                 env_test: ProcgenEnv,
+                 env, #: ProcgenEnv,
+                 env_test, #: ProcgenEnv,
                  policy: nn.Module,
                  logger: Logger,
                  storage: Storage,
