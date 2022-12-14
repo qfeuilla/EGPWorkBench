@@ -6,7 +6,7 @@ import torch
 import torch.optim as optim
 from torch import nn
 import numpy as np
-from procgen import ProcgenEnv
+# from procgen import ProcgenEnv
 from typing import List
 
 import os
@@ -27,8 +27,8 @@ def get_goal_target(asset_index : int, is_test : bool) -> torch.Tensor:
 
 class PPO(BaseAgent):
     def __init__(self,
-                 env: ProcgenEnv,
-                 env_test: ProcgenEnv,
+                 env, #: ProcgenEnv,
+                 env_test, #: ProcgenEnv,
                  policy: nn.Module,
                  logger: Logger,
                  storage: Storage,
