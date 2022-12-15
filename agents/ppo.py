@@ -74,12 +74,13 @@ class PPO(BaseAgent):
         self.use_gae = use_gae
         self.goal_targets = torch.cat([get_goal_target(i, is_test) for i in game_assets])
 
-    def predict(self, obs, hidden_state, done, target):
+    # def predict(self, obs, hidden_state, done, target):
+    def predict(self, obs, hidden_state, done):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).to(device=self.device)
             hidden_state = torch.FloatTensor(hidden_state).to(device=self.device)
             mask = torch.FloatTensor(1-done).to(device=self.device)
-            dist, value, hidden_state = self.policy(obs, hidden_state, mask, target.to(self.device))
+            dist, value, hidden_state = self.policy(obs, hidden_state, mask)
             act = dist.sample()
             log_prob_act = dist.log_prob(act)
 

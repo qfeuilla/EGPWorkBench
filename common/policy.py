@@ -26,8 +26,9 @@ class CategoricalPolicy(nn.Module):
     def is_recurrent(self):
         return self.recurrent
 
-    def forward(self, x, hx, masks, target):
-        hidden = self.embedder(x, target)
+    # def forward(self, x, hx, masks, target):
+    def forward(self, x, hx, masks):
+        hidden = self.embedder(x)
         if self.recurrent:
             hidden, hx = self.gru(hidden, hx, masks)
         logits = self.fc_policy(hidden)
