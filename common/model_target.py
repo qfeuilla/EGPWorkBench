@@ -110,7 +110,7 @@ class ImpalaModelTarget(nn.Module):
 
         self.targets = targets
         device = "cuda" if torch.cuda.is_available else "cpu"
-        self.target.to(device)
+        self.targets.to(device)
 
         # Processing the env
         self.block1 = ImpalaBlock(in_channels=in_channels, out_channels=16)
