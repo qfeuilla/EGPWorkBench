@@ -149,13 +149,6 @@ class PPO(BaseAgent):
         tmp_targets[target_idx_to_update] = tmp_targets[wrong_target_idx]
         return tmp_targets
 
-    # def generate_wrong_target(self, target_idx_to_update: np.array) -> torch.Tensor:
-    #     tmp_targets = torch.clone(self.goal_targets)
-    #     wrong_target_idx = np.random.permutation(target_idx_to_update)
-    #     tmp_targets[target_idx_to_update] = tmp_targets[wrong_target_idx]
-    #     return tmp_targets
-
-
     def train(self, num_timesteps: int):
         save_every = num_timesteps // self.num_checkpoints
         checkpoint_cnt = 0
