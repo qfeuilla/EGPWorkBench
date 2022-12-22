@@ -1,6 +1,6 @@
 from common.env.procgen_wrappers import *
 from common.logger import Logger
-from common.storage import Storage
+from common.storage_sample import Storage
 from common.model_target import NatureModel, ImpalaModelTarget
 from common.policy import CategoricalPolicy
 from common import set_global_seeds, set_global_log_levels
@@ -133,7 +133,7 @@ if __name__=='__main__':
     #############
     print('INITIALIZAING STORAGE...')
     hidden_state_dim = model.output_dim
-    storage = Storage(observation_shape, hidden_state_dim, n_steps, n_envs, device)
+    storage = Storage(observation_shape, hidden_state_dim, n_steps, n_envs, num_timesteps, device)
 
     ###########
     ## AGENT ##
