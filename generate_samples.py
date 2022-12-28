@@ -1,6 +1,6 @@
 from common.env.procgen_wrappers import *
 from common.logger import Logger
-from common.storage_sample import Storage
+from common.storage import Storage
 from common.model_target import NatureModel, ImpalaModelTarget
 from common.policy import CategoricalPolicy
 from common import set_global_seeds, set_global_log_levels
@@ -133,7 +133,7 @@ if __name__=='__main__':
     #############
     print('INITIALIZAING STORAGE...')
     hidden_state_dim = model.output_dim
-    storage = Storage(observation_shape, hidden_state_dim, n_steps, n_envs, num_timesteps, device)
+    storage = Storage(observation_shape, hidden_state_dim, n_steps, n_envs, device)
 
     ###########
     ## AGENT ##
@@ -144,20 +144,12 @@ if __name__=='__main__':
         from agents.ppo import PPO as AGENT
     else:
         raise NotImplementedError
-    agent = AGENT(env, None, policy, logger, storage, None, device, game_asset_idx, num_checkpoints, **hyperparameters)
+    agent = AGENT(None, env, policy, logger, None, storage, device, game_asset_idx, num_checkpoints, **hyperparameters)
 
-    agent.policy.load_state_dict(torch.load("./logs/procgen/coinrun/easy-random-100-res-128-coins-27-pierre/seed_1115_15-12-2022_00-02-42/model_52002816.pth")["state_dict"])
+    agent.policy.load_state_dict(torch.load("./logs/procgen/coinrun/easy-random-100-res-128-coins-27-pierre/seed_3087_15-12-2022_11-01-44/model_31031296.pth")["state_dict"])
 
     ##############
     ## TRAINING ##
     ##############
     print('START TRAINING...')
     agent.test(num_timesteps)
-    os.mkdir('samples')
-    torch.save(agent.storage.obs_batch, 'samples/observations_batch.pt')
-    # torch.save(agent.storage.hidden_states_batch, 'samples/hidden_states_batch.pt')
-    torch.save(agent.storage.act_batch, 'samples/act_batch.pt')
-    torch.save(agent.storage.rew_batch, 'samples/rew_batch.pt')
-    torch.save(agent.storage.value_batch, 'samples/value_batch.pt')
-    torch.save(agent.storage.done_batch, 'samples/done_batch.pt')
-    torch.save(agent.storage.target_idxs, 'samples/target_idxs.pt')

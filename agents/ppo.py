@@ -9,6 +9,8 @@ import numpy as np
 # from procgen import ProcgenEnv
 from typing import List
 
+from tqdm import tqdm
+
 import os
 from torchvision import transforms
 from PIL import Image
@@ -243,9 +245,13 @@ class PPO(BaseAgent):
 
 
     def test(self, num_timesteps: int):
+        
         obs = self.env_test.reset()
         hidden_state = np.zeros((self.n_envs, self.storage_test.hidden_state_size))
         done = np.zeros(self.n_envs)
+        pbar = tqdm(total=num_timesteps)
+        if not os.path.exists('samples'):
+            os.mkdir('samples')
         while self.t < num_timesteps:
             # Run Policy
             self.policy.eval()
@@ -257,5 +263,22 @@ class PPO(BaseAgent):
                 hidden_state = next_hidden_state
             _, _, last_val, hidden_state = self.predict(obs, hidden_state, done, self.goal_targets)
             self.storage_test.store_last(obs, hidden_state, last_val, self.goal_targets)
+
+            pbar.update()
+            self.t += 1
+
+            if not os.path.exists(f'samples/{self.t}'):
+                os.mkdir(f'samples/{self.t}')
+            torch.save(self.storage_test.obs_batch, f'samples/{self.t}/observations_batch.pt')
+            # torch.save(agent.storage.hidden_states_batch, 'samples/hidden_states_batch.pt')
+            torch.save(self.storage_test.act_batch, f'samples/{self.t}/act_batch.pt')
+            torch.save(self.storage_test.rew_batch, f'samples/{self.t}/rew_batch.pt')
+            torch.save(self.storage_test.value_batch, f'samples/{self.t}/value_batch.pt')
+            torch.save(self.storage_test.done_batch, f'samples/{self.t}/done_batch.pt')
+            torch.save(self.storage_test.target_idxs, f'samples/{self.t}/target_idxs.pt')
+
+            self.storage_test.reset()
+
+        pbar.close()
 
         self.env_test.close()
