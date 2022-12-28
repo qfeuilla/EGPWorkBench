@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 
 ! ./logs/procgen/coinrun/easy-random-100-res-128-coins-27
+samples
+samples.zip
+events*
