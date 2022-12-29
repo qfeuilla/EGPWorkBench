@@ -24,7 +24,7 @@ def get_goal_target(asset_index : int, is_test : bool) -> torch.Tensor:
     target_imgs = Image.open(asset_path + target_file).resize((8,8))
     convert_tensor = transforms.ToTensor()
 
-    target_imgs = torch.FloatTensor(convert_tensor(target_imgs)[:3, :, :] /255.0)
+    target_imgs = torch.FloatTensor(convert_tensor(target_imgs)[:3, :, :])
     return target_imgs.unsqueeze(dim=0)
 
 class PPO(BaseAgent):
