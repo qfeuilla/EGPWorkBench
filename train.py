@@ -142,7 +142,7 @@ if __name__=='__main__':
         raise NotImplementedError
     agent = AGENT(env, None, policy, logger, storage, None, device, game_asset_idx, num_checkpoints, **hyperparameters)
 
-    agent.policy.load_state_dict(torch.load("./logs/procgen/coinrun/easy-random-100-res-128-coins-27-pierre/seed_1115_15-12-2022_00-02-42/model_52002816.pth")["state_dict"])
+    # agent.policy.load_state_dict(torch.load("./logs/procgen/coinrun/easy-random-100-res-128-coins-27-pierre/seed_1115_15-12-2022_00-02-42/model_52002816.pth")["state_dict"])
 
     ##############
     ## TRAINING ##
