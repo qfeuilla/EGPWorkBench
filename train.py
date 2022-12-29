@@ -81,6 +81,7 @@ if __name__=='__main__':
                     is_test=False
                 )
     normalize_rew = hyperparameters.get('normalize_rew', True)
+    env.env.set_game_idx()
     env = VecExtractDictObs(env, "rgb")
     if normalize_rew:
         env = VecNormalize(env, ob=False) # normalizing returns, but not the img frames.

@@ -75,7 +75,7 @@ if __name__=='__main__':
     
     # TODO: train and test assets_idx
     game_asset_idx = [np.random.randint(0, int(len(os.listdir("../procgenEGP/procgen/data/assets/kenney/Items/")))) for _ in range(n_envs)]
-    
+
     torch.set_num_threads(4)
     env = ProcgenEnv(num_envs=n_envs,
                     env_name=env_name,
@@ -85,6 +85,7 @@ if __name__=='__main__':
                     game_asset_index=game_asset_idx,
                     is_test=False
                 )
+    env.env.set_game_idx()
     normalize_rew = hyperparameters.get('normalize_rew', True)
     env = VecExtractDictObs(env, "rgb")
     if normalize_rew:
