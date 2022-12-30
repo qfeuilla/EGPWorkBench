@@ -19,7 +19,7 @@ def get_goal_target(asset_index : int, is_test : bool) -> torch.Tensor:
     # Get asset
     asset_path = f"../procgenEGP/procgen/data/assets/kenney/Items{'_test' if is_test else ''}/"
     
-    target_file = os.listdir(asset_path)[asset_index]
+    target_file = sorted(os.listdir(asset_path))[asset_index]
 
     target_imgs = Image.open(asset_path + target_file).resize((8,8))
     convert_tensor = transforms.ToTensor()

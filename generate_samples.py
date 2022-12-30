@@ -76,6 +76,8 @@ if __name__=='__main__':
     # TODO: train and test assets_idx
     game_asset_idx = [np.random.randint(0, int(len(os.listdir("../procgenEGP/procgen/data/assets/kenney/Items/")))) for _ in range(n_envs)]
 
+    print(game_asset_idx)
+
     torch.set_num_threads(4)
     env = ProcgenEnv(num_envs=n_envs,
                     env_name=env_name,
@@ -147,7 +149,7 @@ if __name__=='__main__':
         raise NotImplementedError
     agent = AGENT(None, env, policy, logger, None, storage, device, game_asset_idx, num_checkpoints, **hyperparameters)
 
-    agent.policy.load_state_dict(torch.load("./logs/procgen/coinrun/easy-random-100-res-128-coins-27-pierre/seed_3087_15-12-2022_11-01-44/model_31031296.pth")["state_dict"])
+    agent.policy.load_state_dict(torch.load("./logs/procgen/coinrun/easy-random-100-res-128-coins-27-pierre-old/seed_1115_15-12-2022_00-02-42/model_52002816.pth")["state_dict"])
 
     ##############
     ## TRAINING ##
